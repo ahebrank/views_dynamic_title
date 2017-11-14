@@ -1,0 +1,97 @@
+<?php
+
+/**
+ * @file
+ * Contains views_dynamic_title.module.
+ */
+
+use Drupal\Core\Routing\RouteMatchInterface;
+use Drupal\views\ViewExecutable;
+use Drupal\taxonomy\Entity\Term;
+
+/**
+ * Implements hook_help().
+ */
+function views_dynamic_title_help($route_name, RouteMatchInterface $route_match) {
+  switch ($route_name) {
+    // Main module help for the views_dynamic_title module.
+    case 'help.page.views_dynamic_title':
+      $output = '';
+      $output .= '<h3>' . t('About') . '</h3>';
+      $output .= '<p>' . t('Dynamic title for Views pages, based on filters and pagination') . '</p>';
+      return $output;
+
+    default:
+  }
+}
+
+/**
+ * Implements hook_views_post_render().
+ */
+function views_dynamic_title_views_post_render(ViewExecutable $view) {
+  if (is_a($view->display_handler, '\Drupal\views\Plugin\views\display\Page')) {
+
+    $title = $view->getTitle();
+    $suffix = '';
+
+    // get a list of exposed filters
+    $exposed = [];
+    $filters = [];
+    foreach ($view->filter as $k => $f) {
+      if ($f->isExposed()) {
+        $info = $f->exposedInfo();
+        $exposed[$info['value']] = $info['label'];
+        $filters[$info['value']] = $f;
+      }
+    }
+
+    // get the current inputs
+    $inputs = $view->getExposedInput();
+    $common_keys = array_intersect(array_keys($exposed), array_keys($inputs));
+
+    $filter_title = [];
+    foreach ($common_keys as $k) {
+      $val = _views_dynamic_title_prettify_val($inputs[$k], $filters[$k]);
+      $filter_title[] = sprintf('%s: %s', rtrim($exposed[$k], ':'), $val);
+    }
+    if (count($filter_title)) {
+      $suffix .= ' ' . implode(' ', $filter_title);
+    }
+
+    // add page
+    $page = $view->getCurrentPage();
+    if ($page > 1) {
+      $suffix .= sprintf(" (page %d)", $page);
+    }
+
+    if (!empty($suffix)) {
+      $title .= ' - ' . $suffix;
+    }
+
+    // Set the view title.
+    $view->setTitle($title);
+
+    // Set the route title.
+    $route = \Drupal::routeMatch()->getCurrentRouteMatch()->getRouteObject();
+    $route->setDefault('_title', $title);
+  }
+}
+
+/**
+ * Clean up the exposed filter value for some cases
+ *
+ * @param [type] $val
+ * @param [type] $filter
+ * @return string
+ */
+function _views_dynamic_title_prettify_val($val, $filter) {
+  // taxonomy term
+  if (is_a($filter, '\Drupal\taxonomy\Plugin\views\filter\TaxonomyIndexTid')) {
+    $term = Term::load($val);
+    if ($term) {
+      return $term->getName();
+    }
+  }
+
+  return $val;
+}
