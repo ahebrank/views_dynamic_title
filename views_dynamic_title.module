@@ -57,7 +57,7 @@ function views_dynamic_title_views_post_render(ViewExecutable $view) {
       }
     }
     if (count($filter_title)) {
-      $suffix .= ' ' . implode(' ', $filter_title);
+      $suffix .= ' ' . implode(' | ', $filter_title);
     }
 
     // add page
