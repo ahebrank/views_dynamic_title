@@ -37,25 +37,49 @@ function views_dynamic_title_views_post_render(ViewExecutable $view) {
     // get a list of exposed filters
     $exposed = [];
     $filters = [];
+    $default_values = [];
+
     foreach ($view->filter as $k => $f) {
       if ($f->isExposed()) {
         $info = $f->exposedInfo();
         $exposed[$info['value']] = $info['label'];
         $filters[$info['value']] = $f;
+        if ($f->value) {
+          $default_values[$info['value']] = $f->value;
+        }
       }
     }
 
     // get the current inputs
     $inputs = $view->getExposedInput();
     $common_keys = array_intersect(array_keys($exposed), array_keys($inputs));
+    
+    // add in the default values if they're not passed
+    foreach ($default_values as $k => $v) {
+      if (!in_array($k, $common_keys)) {
+        $common_keys[] = $k;
+        $inputs[$k] = $v;
+      }
+    }
+    
 
     $filter_title = [];
     foreach ($common_keys as $k) {
-      $val = _views_dynamic_title_prettify_val($inputs[$k], $filters[$k]);
-      if (!empty(trim($val))) {
-        $filter_title[] = sprintf('%s: %s', rtrim($exposed[$k], ':'), $val);
+      // arrayify
+      $inputs[$k] = is_array($inputs[$k])? $inputs[$k] : [$inputs[$k]];
+
+      $val_str = [];
+      foreach ($inputs[$k] as $v) {
+        $tmp = _views_dynamic_title_prettify_val($v, $filters[$k]);
+        if (!empty(trim($tmp))) {
+          $val_str[] = $tmp;
+        }
+      }
+      if ($val_str) {
+        $filter_title[] = sprintf('%s: %s', rtrim($exposed[$k], ':'), implode(', ', $val_str));
       }
     }
+
     if (count($filter_title)) {
       $suffix .= ' ' . implode(' | ', $filter_title);
     }
