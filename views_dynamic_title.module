@@ -88,6 +88,11 @@ function views_dynamic_title_views_post_render(ViewExecutable $view) {
  * @return string
  */
 function _views_dynamic_title_prettify_val($val, $filter) {
+  // strip out 'All' filter value
+  if ($val == 'All') {
+    return '';
+  }
+
   // taxonomy term
   if (is_a($filter, '\Drupal\taxonomy\Plugin\views\filter\TaxonomyIndexTid')) {
     $term = Term::load($val);
