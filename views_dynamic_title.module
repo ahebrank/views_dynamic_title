@@ -64,18 +64,25 @@ function views_dynamic_title_views_post_render(ViewExecutable $view) {
     
 
     $filter_title = [];
+    $val_lookup = [];
     foreach ($common_keys as $k) {
       // arrayify
       $inputs[$k] = is_array($inputs[$k])? $inputs[$k] : [$inputs[$k]];
 
       $val_str = [];
+      $val_links = [];
       foreach ($inputs[$k] as $v) {
         $tmp = _views_dynamic_title_prettify_val($v, $filters[$k]);
-        if (!empty(trim($tmp))) {
-          $val_str[] = $tmp;
+        if ($tmp) {
+          if (isset($tmp['name']) && !empty(trim($tmp['name']))) {
+            $val_str[$v] = $tmp['name'];
+            $val_links[$v] = $tmp['link'];
+          }
         }
       }
       if ($val_str) {
+        $val_lookup[$k]['name'] = $val_str; 
+        $val_lookup[$k]['link'] = $val_links;
         $filter_title[] = sprintf('%s: %s', rtrim($exposed[$k], ':'), implode(', ', $val_str));
       }
     }
@@ -98,6 +105,13 @@ function views_dynamic_title_views_post_render(ViewExecutable $view) {
     // Set the view title.
     $view->setTitle($title);
 
+    // store info
+    $view->dynamic_applied_filters = [
+      'inputs' => $inputs,
+      'values' => $val_lookup,
+      'keys' => $exposed,
+    ];
+
     // Set the route title.
     $route = \Drupal::routeMatch()->getCurrentRouteMatch()->getRouteObject();
     $route->setDefault('_title', $title);
@@ -112,18 +126,26 @@ function views_dynamic_title_views_post_render(ViewExecutable $view) {
  * @return string
  */
 function _views_dynamic_title_prettify_val($val, $filter) {
+  $name = '';
+  $link = FALSE;
+
   // strip out 'All' filter value
   if ($val == 'All') {
-    return '';
+    return [];
   }
 
   // taxonomy term
-  if (is_a($filter, '\Drupal\taxonomy\Plugin\views\filter\TaxonomyIndexTid')) {
+  if (is_a($filter, '\Drupal\taxonomy\Plugin\views\filter\TaxonomyIndexTid')
+    || $filter->table == 'taxonomy_term_hierarchy') {
     $term = Term::load($val);
     if ($term) {
-      return $term->getName();
+      $name = $term->getName();
+      $link = $term->toUrl();
     }
   }
 
-  return $val;
+  return [
+    'name' => $name,
+    'link' => $link,
+  ];
 }
